@@ -20,7 +20,6 @@ var __assign = (this && this.__assign) || function () {
 var CountUp = /** @class */ (function () {
     function CountUp(target, endVal, options) {
         var _this = this;
-        this.endVal = endVal;
         this.options = options;
         this.version = '2.10.1';
         this.defaults = {
@@ -47,6 +46,7 @@ var CountUp = /** @class */ (function () {
         this.startVal = 0;
         this.paused = true;
         this.once = false;
+        this.savedEndVal = null;
         /** Animation frame callback — advances the value each frame. */
         this.count = function (timestamp) {
             if (!_this.startTime) {
@@ -72,7 +72,9 @@ var CountUp = /** @class */ (function () {
             // decimal
             _this.frameVal = Number(_this.frameVal.toFixed(_this.options.decimalPlaces));
             // format and print value
-            _this.printValue(_this.frameVal);
+            var isFinalFrame = (progress >= _this.duration || wentPast) && _this.finalEndVal === null;
+            var printVal = (isFinalFrame && _this.savedEndVal) ? _this.savedEndVal : _this.frameVal;
+            _this.printValue(printVal);
             // whether to continue
             if (progress < _this.duration) {
                 _this.rAF = requestAnimationFrame(_this.count);
@@ -89,9 +91,30 @@ var CountUp = /** @class */ (function () {
         };
         /** Default number formatter with grouping, decimals, prefix/suffix, and numeral substitution. */
         this.formatNumber = function (num) {
-            var neg = (num < 0) ? '-' : '';
+            var neg = false;
             var result, x1, x2, x3;
-            result = Math.abs(num).toFixed(_this.options.decimalPlaces);
+            if (typeof num === 'number') {
+                neg = (num < 0);
+                result = Math.abs(num).toFixed(_this.options.decimalPlaces);
+            }
+            else {
+                var str = String(num);
+                neg = str.startsWith('-');
+                if (neg) {
+                    str = str.substring(1);
+                }
+                var decIndex = str.indexOf('.');
+                if (decIndex === -1 && _this.options.decimalPlaces > 0) {
+                    str += '.' + '0'.repeat(_this.options.decimalPlaces);
+                }
+                else if (decIndex !== -1) {
+                    var decimals = str.length - decIndex - 1;
+                    if (decimals < _this.options.decimalPlaces) {
+                        str += '0'.repeat(_this.options.decimalPlaces - decimals);
+                    }
+                }
+                result = str;
+            }
             result += '';
             var x = result.split('.');
             x1 = x[0];
@@ -117,7 +140,8 @@ var CountUp = /** @class */ (function () {
                 x1 = x1.replace(/[0-9]/g, function (w) { return _this.options.numerals[+w]; });
                 x2 = x2.replace(/[0-9]/g, function (w) { return _this.options.numerals[+w]; });
             }
-            return neg + _this.options.prefix + x1 + x2 + _this.options.suffix;
+            var negSign = neg ? '-' : '';
+            return negSign + _this.options.prefix + x1 + x2 + _this.options.suffix;
         };
         /**
          * Default easing function (easeOutExpo).
@@ -144,6 +168,14 @@ var CountUp = /** @class */ (function () {
         this.easingFn = (this.options.easingFn) ?
             this.options.easingFn : this.easeOutExpo;
         this.el = (typeof target === 'string') ? document.getElementById(target) : target;
+        var endValStr = null;
+        if (typeof endVal === 'string') {
+            endValStr = endVal;
+        }
+        else if (endVal === null || endVal === undefined) {
+            endValStr = this.el ? this.el.innerHTML : null;
+        }
+        this.savedEndVal = this.extractNumericString(endValStr);
         endVal = endVal == null ? this.parse(this.el.innerHTML) : endVal;
         this.startVal = this.validateValue(this.options.startVal);
         this.frameVal = this.startVal;
@@ -298,6 +330,7 @@ var CountUp = /** @class */ (function () {
         cancelAnimationFrame(this.rAF);
         this.startTime = null;
         this.endVal = this.validateValue(newEndVal);
+        this.savedEndVal = (typeof newEndVal === 'string') ? this.extractNumericString(newEndVal) : null;
         if (this.endVal === this.frameVal) {
             return;
         }
@@ -359,6 +392,17 @@ var CountUp = /** @class */ (function () {
         var dec = escapeRegExp(this.options.decimal);
         var num = number.replace(new RegExp(sep, 'g'), '').replace(new RegExp(dec, 'g'), '.');
         return parseFloat(num);
+    };
+    CountUp.prototype.extractNumericString = function (number) {
+        if (!number)
+            return null;
+        // eslint-disable-next-line no-irregular-whitespace
+        var escapeRegExp = function (s) { return s.replace(/([.,'  ])/g, '\\$1'); };
+        var sep = escapeRegExp(this.options.separator);
+        var dec = escapeRegExp(this.options.decimal);
+        var numStr = number.replace(new RegExp(sep, 'g'), '').replace(new RegExp(dec, 'g'), '.');
+        var match = numStr.match(/^-?\d*\.?\d+/);
+        return match ? match[0] : null;
     };
     CountUp.observedElements = new WeakMap();
     return CountUp;

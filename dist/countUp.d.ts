@@ -60,7 +60,6 @@ export declare interface CountUpPlugin {
  * @param options - optional configuration object for fine-grain control
  */
 export declare class CountUp {
-    private endVal?;
     options?: CountUpOptions;
     version: string;
     private static observedElements;
@@ -82,7 +81,9 @@ export declare class CountUp {
     paused: boolean;
     frameVal: number;
     once: boolean;
-    constructor(target: string | HTMLElement | HTMLInputElement, endVal?: number | null, options?: CountUpOptions);
+    endVal: number;
+    private savedEndVal;
+    constructor(target: string | HTMLElement | HTMLInputElement, endVal?: number | string | null, options?: CountUpOptions);
     /** Set up an IntersectionObserver to auto-animate when the target element appears. */
     private setupObserver;
     /** Disconnect the IntersectionObserver and stop watching this element. */
@@ -107,7 +108,7 @@ export declare class CountUp {
     /** Animation frame callback — advances the value each frame. */
     count: (timestamp: number) => void;
     /** Format and render the given value to the target element. */
-    printValue(val: number): void;
+    printValue(val: number | string): void;
     /** Return true if the value is a finite number. */
     ensureNumber(n: any): boolean;
     /** Validate and convert a value to a number, setting an error if invalid. */
@@ -115,7 +116,7 @@ export declare class CountUp {
     /** Reset startTime, duration, and remaining to their initial values. */
     private resetDuration;
     /** Default number formatter with grouping, decimals, prefix/suffix, and numeral substitution. */
-    formatNumber: (num: number) => string;
+    formatNumber: (num: number | string) => string;
     /**
      * Default easing function (easeOutExpo).
      * @param t current time
@@ -126,4 +127,5 @@ export declare class CountUp {
     easeOutExpo: (t: number, b: number, c: number, d: number) => number;
     /** Parse a formatted string back to a number using the current separator/decimal options. */
     parse(number: string): number;
+    private extractNumericString;
 }

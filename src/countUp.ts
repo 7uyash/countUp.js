@@ -100,10 +100,12 @@ export class CountUp {
   paused = true;
   frameVal: number;
   once = false;
+  endVal: number;
+  private savedEndVal: string = null;
 
   constructor(
     target: string | HTMLElement | HTMLInputElement,
-    private endVal?: number | null,
+    endVal?: number | string | null,
     public options?: CountUpOptions
   ) {
     this.options = {
@@ -125,6 +127,14 @@ export class CountUp {
       this.options.easingFn : this.easeOutExpo;
 
     this.el = (typeof target === 'string') ? document.getElementById(target) : target;
+    let endValStr: string | null = null;
+    if (typeof endVal === 'string') {
+      endValStr = endVal;
+    } else if (endVal === null || endVal === undefined) {
+      endValStr = this.el ? this.el.innerHTML : null;
+    }
+    this.savedEndVal = this.extractNumericString(endValStr);
+    
     endVal = endVal == null ? this.parse(this.el.innerHTML) : endVal;
 
     this.startVal = this.validateValue(this.options.startVal);
@@ -278,6 +288,7 @@ export class CountUp {
     cancelAnimationFrame(this.rAF);
     this.startTime = null;
     this.endVal = this.validateValue(newEndVal);
+    this.savedEndVal = (typeof newEndVal === 'string') ? this.extractNumericString(newEndVal) : null;
     if (this.endVal === this.frameVal) {
       return;
     }
@@ -316,7 +327,9 @@ export class CountUp {
     this.frameVal = Number(this.frameVal.toFixed(this.options.decimalPlaces));
 
     // format and print value
-    this.printValue(this.frameVal);
+    const isFinalFrame = (progress >= this.duration || wentPast) && this.finalEndVal === null;
+    const printVal = (isFinalFrame && this.savedEndVal) ? this.savedEndVal : this.frameVal;
+    this.printValue(printVal);
 
     // whether to continue
     if (progress < this.duration) {
@@ -332,9 +345,9 @@ export class CountUp {
   }
 
   /** Format and render the given value to the target element. */
-  printValue(val: number): void {
+  printValue(val: number | string): void {
     if (!this.el) return;
-    const result = this.formattingFn(val);
+    const result = this.formattingFn(val as number);
     if (this.options.plugin?.render) {
       this.options.plugin.render(this.el, result);
       return;
@@ -373,10 +386,31 @@ export class CountUp {
   }
 
   /** Default number formatter with grouping, decimals, prefix/suffix, and numeral substitution. */
-  formatNumber = (num: number): string => {
-    const neg = (num < 0) ? '-' : '';
+  formatNumber = (num: number | string): string => {
+    let neg = false;
     let result: string, x1: string, x2: string, x3: string;
-    result = Math.abs(num).toFixed(this.options.decimalPlaces);
+    
+    if (typeof num === 'number') {
+      neg = (num < 0);
+      result = Math.abs(num).toFixed(this.options.decimalPlaces);
+    } else {
+      let str = String(num);
+      neg = str.startsWith('-');
+      if (neg) {
+        str = str.substring(1);
+      }
+      const decIndex = str.indexOf('.');
+      if (decIndex === -1 && this.options.decimalPlaces > 0) {
+        str += '.' + '0'.repeat(this.options.decimalPlaces);
+      } else if (decIndex !== -1) {
+        const decimals = str.length - decIndex - 1;
+        if (decimals < this.options.decimalPlaces) {
+          str += '0'.repeat(this.options.decimalPlaces - decimals);
+        }
+      }
+      result = str;
+    }
+    
     result += '';
     const x = result.split('.');
     x1 = x[0];
@@ -402,7 +436,8 @@ export class CountUp {
       x1 = x1.replace(/[0-9]/g, (w) => this.options.numerals[+w]);
       x2 = x2.replace(/[0-9]/g, (w) => this.options.numerals[+w]);
     }
-    return neg + this.options.prefix + x1 + x2 + this.options.suffix;
+    const negSign = neg ? '-' : '';
+    return negSign + this.options.prefix + x1 + x2 + this.options.suffix;
   }
 
   /**
@@ -423,5 +458,16 @@ export class CountUp {
     const dec = escapeRegExp(this.options.decimal);
     const num = number.replace(new RegExp(sep, 'g'), '').replace(new RegExp(dec, 'g'), '.');
     return parseFloat(num)
+  }
+
+  private extractNumericString(number: string): string | null {
+    if (!number) return null;
+    // eslint-disable-next-line no-irregular-whitespace
+    const escapeRegExp = (s: string) => s.replace(/([.,'  ])/g, '\\$1');
+    const sep = escapeRegExp(this.options.separator);
+    const dec = escapeRegExp(this.options.decimal);
+    const numStr = number.replace(new RegExp(sep, 'g'), '').replace(new RegExp(dec, 'g'), '.');
+    const match = numStr.match(/^-?\d*\.?\d+/);
+    return match ? match[0] : null;
   }
 }

@@ -109,7 +109,7 @@ function calculateAnimationTime() {
 }
 
 function establishOptionsFromInputs() {
-  endVal = Number(el('endVal').value);
+  endVal = el('endVal').value;
   options = {
     startVal: el('startVal').value,
     decimalPlaces: el('decimalPlaces').value,
